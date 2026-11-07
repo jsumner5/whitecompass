@@ -33,6 +33,7 @@
   .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
   .btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:13px 22px;font-weight:700;font-size:15px;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:transform .15s ease, background .15s ease;font-family:inherit}
   .btn:active{transform:scale(.98)}
+  .btn[disabled]{opacity:.55;cursor:default;transform:none}
   .btn-call{background:var(--call);color:var(--call-ink)}
   .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
   .btn-brass{background:var(--brass-bright);color:#1c1503}
@@ -376,7 +377,7 @@
     <div class="wrap">
       <div class="sec-head">
         <h2>Book online</h2>
-        <p>Fill this in and send it — your request opens as a ready-to-send email, with a text option too. Samantha confirms availability by phone or text before anything is final, and no payment is taken online. Rather talk? Call <a href="tel:+16785320850"><b>(678) 532-0850</b></a>.</p>
+        <p>Fill this in and tap <b>Send my booking request</b> — it goes straight to both Samantha (<a href="mailto:samantha.95@yahoo.com"><b>samantha.95@yahoo.com</b></a>) and Jerold (<a href="mailto:jeroldsumner@gmail.com"><b>jeroldsumner@gmail.com</b></a>) by email, no mail app needed. Samantha confirms availability before anything is final, and no payment is taken online. Rather talk or text? Call or text Samantha at <a href="tel:+16785320850"><b>(678) 532-0850</b></a>.</p>
       </div>
       <div class="card">
         <form id="bookForm">
@@ -395,15 +396,18 @@
           </div>
           <p class="book-note">This is a request, not a confirmed booking — Samantha will confirm your dates before you come. Rental is paid at pickup.</p>
           <div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:10px">
-            <button class="btn btn-call" type="submit">Build my booking request</button>
+            <button class="btn btn-call" type="submit" id="submitBtn">Send my booking request</button>
             <a class="btn btn-ghost" href="tel:+16785320850">Just call instead</a>
           </div>
+          <input type="text" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true" style="display:none" />
         </form>
         <div class="form-result" id="formResult" aria-live="polite">
+          <p style="margin:0 0 10px;font-size:15px"><strong id="resultTitle">Sending your request…</strong></p>
           <p id="formMsg"></p>
-          <div class="row">
-            <a class="btn btn-brass" id="emailLink" href="#">Send it by email</a>
-            <a class="btn btn-call" id="smsLink" href="#">Send it by text instead</a>
+          <p id="resultNote" style="margin:0 0 12px;font-size:14.5px"></p>
+          <div class="row" id="fallbackRow" style="display:none">
+            <a class="btn btn-brass" id="emailLink" href="mailto:samantha.95@yahoo.com,jeroldsumner@gmail.com">Email to Samantha &amp; Jerold</a>
+            <a class="btn btn-call" id="smsLink" href="sms:+16785320850">Text Samantha</a>
             <button class="btn btn-ghost" type="button" id="copyBtn">Copy the request</button>
           </div>
           <p id="copyNote" style="margin:10px 0 0;font-size:13px;color:var(--ink-2)"></p>
@@ -426,7 +430,7 @@
         </details>
         <details>
           <summary>How does booking online work?</summary>
-          <div class="a">Pick your equipment and dates in the <a href="#book">booking form</a> and hit submit — it opens a ready-to-send email with everything filled in (there's a text option too). Samantha confirms availability by phone or text before anything is final. No payment is taken online; you pay at pickup.</div>
+          <div class="a">Pick your equipment and dates in the <a href="#book">booking form</a> and tap Send — the request is emailed straight to Samantha at samantha.95@yahoo.com and Jerold at jeroldsumner@gmail.com. Samantha confirms availability by phone or text before anything is final. No payment is taken online; you pay at pickup.</div>
         </details>
         <details>
           <summary>How much is it, really?</summary>
@@ -468,9 +472,11 @@
         <div>
           <span style="font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)">Samantha · White Compass LLC</span>
           <a class="phone-big" href="tel:+16785320850">(678) 532-0850</a>
+          <p style="margin:8px 0 0;font-size:14.5px">Booking email: <a href="mailto:samantha.95@yahoo.com,jeroldsumner@gmail.com"><b>samantha.95@yahoo.com</b></a><br />and <a href="mailto:samantha.95@yahoo.com,jeroldsumner@gmail.com"><b>jeroldsumner@gmail.com</b></a></p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
             <a class="btn btn-call" href="tel:+16785320850">Call now</a>
-            <a class="btn btn-ghost" href="sms:+16785320850">Send a text</a>
+            <a class="btn btn-ghost" href="sms:+16785320850?&amp;body=Hi%20Samantha%20%E2%80%94%20I%27d%20like%20to%20rent%20from%20White%20Compass%20LLC.">Send a text</a>
+            <a class="btn btn-ghost" href="mailto:samantha.95@yahoo.com,jeroldsumner@gmail.com?subject=White%20Compass%20rental%20request">Send an email</a>
           </div>
         </div>
       </div>
@@ -558,12 +564,17 @@
     }
   ];
 
-  /* TODO — booking-request email inbox.
-     No confirmed White Compass email address exists yet, so requests are
-     addressed to this placeholder. Replace it with the real inbox
-     (e.g. the address Samantha checks) and emailed requests will land
-     there. The text-to-Samantha option works either way. */
-  var BOOKING_EMAIL = "bookings@whitecompassllc.example";
+  /* Booking-request destinations (confirmed by Jerold, Nov 7, 2026).
+     On submit, the form posts to the FormSubmit relay endpoint for
+     Jerold's inbox with Samantha CC'd, so the request is emailed to
+     BOTH inboxes automatically — no visitor mail app involved.
+     (FormSubmit sends one activation email to the endpoint address
+     on first use; after it's confirmed, submissions deliver directly.)
+     The mailto:/sms: links remain only as a fallback if the relay
+     send fails. */
+  var BOOKING_EMAIL = "samantha.95@yahoo.com,jeroldsumner@gmail.com";
+  var FORM_ENDPOINT = "https://formsubmit.co/ajax/jeroldsumner@gmail.com";
+  var FORM_CC = "samantha.95@yahoo.com";
   var SAM_PHONE_SMS = "+16785320850";
 
   function money(n){ return "$" + n.toLocaleString("en-US"); }
@@ -774,14 +785,18 @@
   bEnd.addEventListener("change", renderEstimate);
   renderEstimate();
 
-  /* ---------- Booking form: build email + text ---------- */
+  /* ---------- Booking form: send via form relay (fallback: email/text) ---------- */
   var form = document.getElementById("bookForm");
   var result = document.getElementById("formResult");
+  var resultTitle = document.getElementById("resultTitle");
+  var resultNote = document.getElementById("resultNote");
+  var fallbackRow = document.getElementById("fallbackRow");
   var msgEl = document.getElementById("formMsg");
   var emailLink = document.getElementById("emailLink");
   var smsLink = document.getElementById("smsLink");
   var copyBtn = document.getElementById("copyBtn");
   var copyNote = document.getElementById("copyNote");
+  var submitBtn = document.getElementById("submitBtn");
   var lastMsg = "";
   form.addEventListener("submit", function(e){
     e.preventDefault();
@@ -811,10 +826,51 @@
     smsLink.setAttribute("href", "sms:" + SAM_PHONE_SMS + "?&body=" + encodeURIComponent(lastMsg));
     result.classList.add("show");
     copyNote.textContent = "";
+    fallbackRow.style.display = "none";
+    resultTitle.textContent = "Sending your request…";
+    resultNote.textContent = "";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Sending…";
     result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    var payload = {
+      _subject: subject,
+      _cc: FORM_CC,
+      _template: "table",
+      _captcha: "false",
+      Equipment: item.name + (soon ? " (coming soon — asking about availability)" : ""),
+      "Pickup date": fmtDate(bStart.value),
+      "Return date": fmtDate(bEnd.value),
+      Days: d + (d === 1 ? " day" : " days"),
+      "Estimated total": soon ? "Rate TBD" : money(d * item.rate) + " (" + money(item.rate) + "/day, paid at pickup)",
+      Name: name,
+      Phone: phone
+    };
+    if (email){ payload.Email = email; payload._replyto = email; }
+    if (haul) payload.Hauling = haul;
+
+    function sendFailed(){
+      resultTitle.textContent = "That didn't go through — send it one of these ways instead:";
+      resultNote.textContent = "Your request is filled in below. Tap Email or Text and hit send in the app that opens, or copy it and send it yourself. Email goes to samantha.95@yahoo.com and jeroldsumner@gmail.com; text goes to Samantha at (678) 532-0850.";
+      fallbackRow.style.display = "flex";
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Try sending again";
+    }
+    fetch(FORM_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(function(res){
+      if (!res.ok) throw new Error("send failed");
+      return res.json().catch(function(){ return {}; });
+    }).then(function(){
+      resultTitle.textContent = "Request sent ✓";
+      resultNote.textContent = "Your booking request was emailed to Samantha (samantha.95@yahoo.com) and Jerold (jeroldsumner@gmail.com). Samantha will confirm availability by phone or text. If you don't hear back, call (678) 532-0850.";
+      submitBtn.textContent = "Request sent";
+    }).catch(sendFailed);
   });
   copyBtn.addEventListener("click", function(){
-    function done(){ copyNote.textContent = "Copied — paste it into an email or a text to Samantha at (678) 532-0850."; }
+    function done(){ copyNote.textContent = "Copied — paste it into an email to samantha.95@yahoo.com and jeroldsumner@gmail.com, or a text to Samantha at (678) 532-0850."; }
     if (navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(lastMsg).then(done, function(){ copyNote.textContent = "Copy didn't work here — the request above is ready to copy by hand."; });
     } else {
